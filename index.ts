@@ -1,15 +1,18 @@
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import ModelClient, { isUnexpected } from '@azure-rest/ai-inference';
+import { AzureKeyCredential } from '@azure/core-auth';
 import { $ } from "bun";
 import os from "os";
 import fs from "fs";
 import path from "path";
 import envPaths from "env-paths";
+
 import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
 import type { ContextConfig } from "./context";
 
-type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini";
+type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub";
 
 interface Config {
   type: ProviderType;
@@ -17,12 +20,14 @@ interface Config {
   model: string;
   baseURL?: string;
   context?: ContextConfig;
+  clipboard?: boolean;
 }
 
 const DEFAULT_CONFIG: Config = {
   type: "OpenAI",
   model: "gpt-4.1",
   context: DEFAULT_CONTEXT_CONFIG,
+  clipboard: false,
 };
 
 function getConfig(): Config {
@@ -37,6 +42,7 @@ function getConfig(): Config {
         ...DEFAULT_CONFIG,
         apiKey: "",
         baseURL: null,
+        clipboard: false,
       };
       fs.writeFileSync(
         configPath,
@@ -77,6 +83,11 @@ function getConfig(): Config {
       mergedConfig.context = DEFAULT_CONTEXT_CONFIG;
     }
 
+    // Ensure clipboard config has default
+    if (mergedConfig.clipboard === undefined) {
+      mergedConfig.clipboard = false;
+    }
+
     return mergedConfig;
   } catch (error) {
     console.error(
@@ -85,6 +96,27 @@ function getConfig(): Config {
     );
     console.error("Please ensure it is a valid JSON file.");
     process.exit(1);
+  }
+}
+
+async function copyToClipboard(text: string): Promise<void> {
+  const { execSync } = await import('child_process');
+  
+  try {
+    if (process.platform === "darwin") {
+      execSync("pbcopy", { input: text });
+    } else if (process.platform === "win32") {
+      execSync("clip", { input: text });
+    } else {
+      // Linux - try xclip first, then xsel
+      try {
+        execSync("xclip -selection clipboard", { input: text });
+      } catch {
+        execSync("xsel --clipboard --input", { input: text });
+      }
+    }
+  } catch (error) {
+    throw new Error(`Clipboard operation failed: ${error}`);
   }
 }
 
@@ -176,9 +208,9 @@ Free Memory: ${(os.freemem() / 1024 / 1024).toFixed(0)} MB
 
   // System prompt
   const systemPrompt = `
-You live in a developer's CLI, helping them convert natural language into CLI commands. 
-Based on the description of the command given, generate the command. Output only the command and nothing else. 
-Make sure to escape characters when appropriate. The result of \`${lsCommand}\` is given with the command. 
+You live in a developer's CLI, helping them convert natural language into CLI commands.
+Based on the description of the command given, generate the command. Output only the command and nothing else.
+Make sure to escape characters when appropriate. The result of \`${lsCommand}\` is given with the command.
 This may be helpful depending on the description given. Do not include any other text in your response, except for the command.
 Do not wrap the command in quotes.
 
@@ -250,6 +282,34 @@ ${historyContext}`;
       return sanitizeResponse(String(raw));
     }
 
+    case "GitHub": {
+      const endpoint = config.baseURL ? config.baseURL : "https://models.github.ai/inference";
+      const model = config.model ? config.model : "openai/gpt-4.1-nano";
+      const github = ModelClient(
+        endpoint,
+        new AzureKeyCredential(config.apiKey)
+      );
+
+      const response = await github.path("/chat/completions").post({
+        body: {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Command description: ${commandDescription}` },
+          ],
+          temperature: 1.0,
+          top_p: 1.0,
+          model: model,
+        },
+      });
+
+      if (isUnexpected(response)) {
+        throw response.body.error;
+      }
+
+      const content = response.body.choices?.[0]?.message?.content;
+      return content?.trim() || "";
+    }
+
     default:
       console.error(
         `Error: Unknown provider type "${config.type}" in config.json.`
@@ -261,6 +321,16 @@ ${historyContext}`;
 // --- Main Execution ---
 try {
   const command = await generateCommand(config, commandDescription);
+
+  // Copy to clipboard if enabled
+  if (config.clipboard) {
+    try {
+      await copyToClipboard(command);
+    } catch (clipboardError: any) {
+      console.error("Warning: Failed to copy to clipboard:", clipboardError.message);
+    }
+  }
+
   console.log(command);
 } catch (error: any) {
   console.error("Error generating command:", error.message);
