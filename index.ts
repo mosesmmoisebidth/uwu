@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import envPaths from "env-paths";
 
-import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
+import { buildContextHistory, DEFAULT_CONTEXT_CONFIG } from "./context";
 import type { ContextConfig } from "./context";
 
 type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub";
@@ -46,7 +46,7 @@ function getConfig(): Config {
       };
       fs.writeFileSync(
         configPath,
-        JSON.stringify(defaultConfigToFile, null, 2)
+        JSON.stringify(defaultConfigToFile, null, 2),
       );
 
       // For this first run, use the environment variable for the API key.
@@ -92,7 +92,7 @@ function getConfig(): Config {
   } catch (error) {
     console.error(
       "Error reading or parsing the configuration file at:",
-      configPath
+      configPath,
     );
     console.error("Please ensure it is a valid JSON file.");
     process.exit(1);
@@ -136,7 +136,7 @@ function sanitizeResponse(content: string): string {
 
   content = content.replace(
     /<\s*think\b[^>]*>[\s\S]*?<\s*\/\s*think\s*>/gi,
-    ""
+    "",
   );
 
   let lastCodeBlock: string | null = null;
@@ -161,8 +161,7 @@ function sanitizeResponse(content: string): string {
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!;
 
-    const looksLikeSentence =
-      /^[A-Z][\s\S]*[.?!]$/.test(line) ||
+    const looksLikeSentence = /^[A-Z][\s\S]*[.?!]$/.test(line) ||
       /\b(user|want|should|shouldn't|think|explain|error|note)\b/i.test(line);
     if (!looksLikeSentence && line.length <= 2000) {
       return line.trim();
@@ -174,7 +173,7 @@ function sanitizeResponse(content: string): string {
 
 async function generateCommand(
   config: Config,
-  commandDescription: string
+  commandDescription: string,
 ): Promise<string> {
   const envContext = `
 Operating System: ${os.type()} ${os.release()} (${os.platform()} - ${os.arch()})
@@ -226,7 +225,7 @@ ${historyContext}`;
   if (!config.apiKey) {
     console.error("Error: API key not found.");
     console.error(
-      "Please provide an API key in your config.json file or by setting the OPENAI_API_KEY environment variable."
+      "Please provide an API key in your config.json file or by setting the OPENAI_API_KEY environment variable.",
     );
     process.exit(1);
   }
@@ -275,7 +274,8 @@ ${historyContext}`;
     case "Gemini": {
       const genAI = new GoogleGenerativeAI(config.apiKey);
       const model = genAI.getGenerativeModel({ model: config.model });
-      const prompt = `${systemPrompt}\n\nCommand description: ${commandDescription}`;
+      const prompt =
+        `${systemPrompt}\n\nCommand description: ${commandDescription}`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const raw = await response.text();
@@ -283,23 +283,18 @@ ${historyContext}`;
     }
 
     case "GitHub": {
-      const endpoint = config.baseURL
-        ? config.baseURL
-        : "https://models.github.ai/inference";
+      const endpoint = config.baseURL ? config.baseURL : "https://models.github.ai/inference";
       const model = config.model ? config.model : "openai/gpt-4.1-nano";
       const github = ModelClient(
         endpoint,
-        new AzureKeyCredential(config.apiKey)
+        new AzureKeyCredential(config.apiKey),
       );
 
       const response = await github.path("/chat/completions").post({
         body: {
           messages: [
             { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: `Command description: ${commandDescription}`,
-            },
+            { role: "user", content: `Command description: ${commandDescription}` },
           ],
           temperature: 1.0,
           top_p: 1.0,
@@ -317,7 +312,7 @@ ${historyContext}`;
 
     default:
       console.error(
-        `Error: Unknown provider type "${config.type}" in config.json.`
+        `Error: Unknown provider type "${config.type}" in config.json.`,
       );
       process.exit(1);
   }
@@ -332,10 +327,7 @@ try {
     try {
       await copyToClipboard(command);
     } catch (clipboardError: any) {
-      console.error(
-        "Warning: Failed to copy to clipboard:",
-        clipboardError.message
-      );
+      console.error("Warning: Failed to copy to clipboard:", clipboardError.message);
     }
   }
 
