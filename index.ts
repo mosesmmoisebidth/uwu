@@ -1,15 +1,15 @@
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
-import { AzureKeyCredential } from "@azure/core-auth";
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import ModelClient, { isUnexpected } from '@azure-rest/ai-inference';
+import { AzureKeyCredential } from '@azure/core-auth';
 import { $ } from "bun";
 import os from "os";
 import fs from "fs";
 import path from "path";
 import envPaths from "env-paths";
 
-import { buildContextHistory, DEFAULT_CONTEXT_CONFIG } from "./context";
+import { DEFAULT_CONTEXT_CONFIG, buildContextHistory } from "./context";
 import type { ContextConfig } from "./context";
 
 type ProviderType = "OpenAI" | "Custom" | "Claude" | "Gemini" | "GitHub";
@@ -46,7 +46,7 @@ function getConfig(): Config {
       };
       fs.writeFileSync(
         configPath,
-        JSON.stringify(defaultConfigToFile, null, 2),
+        JSON.stringify(defaultConfigToFile, null, 2)
       );
 
       // For this first run, use the environment variable for the API key.
@@ -92,7 +92,7 @@ function getConfig(): Config {
   } catch (error) {
     console.error(
       "Error reading or parsing the configuration file at:",
-      configPath,
+      configPath
     );
     console.error("Please ensure it is a valid JSON file.");
     process.exit(1);
@@ -100,8 +100,8 @@ function getConfig(): Config {
 }
 
 async function copyToClipboard(text: string): Promise<void> {
-  const { execSync } = await import("child_process");
-
+  const { execSync } = await import('child_process');
+  
   try {
     if (process.platform === "darwin") {
       execSync("pbcopy", { input: text });
@@ -136,16 +136,15 @@ function sanitizeResponse(content: string): string {
 
   content = content.replace(
     /<\s*think\b[^>]*>[\s\S]*?<\s*\/\s*think\s*>/gi,
-    "",
+    ""
   );
 
   let lastCodeBlock: string | null = null;
   const codeBlockRegex = /```(?:[^\n]*)\n([\s\S]*?)```/g;
   let m;
   while ((m = codeBlockRegex.exec(content)) !== null) {
-    lastCodeBlock = m[1] || "";
+    lastCodeBlock = m[1] || '';
   }
-  // Since empty string is falsy this will be fine
   if (lastCodeBlock) {
     content = lastCodeBlock;
   } else {
@@ -161,19 +160,20 @@ function sanitizeResponse(content: string): string {
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!;
 
-    const looksLikeSentence = /^[A-Z][\s\S]*[.?!]$/.test(line) ||
+    const looksLikeSentence =
+      /^[A-Z][\s\S]*[.?!]$/.test(line) ||
       /\b(user|want|should|shouldn't|think|explain|error|note)\b/i.test(line);
     if (!looksLikeSentence && line.length <= 2000) {
       return line.trim();
     }
   }
 
-  return lines.at(-1)?.trim() || "";
+  return lines.at(-1)?.trim() || '';
 }
 
 async function generateCommand(
   config: Config,
-  commandDescription: string,
+  commandDescription: string
 ): Promise<string> {
   const envContext = `
 Operating System: ${os.type()} ${os.release()} (${os.platform()} - ${os.arch()})
@@ -225,7 +225,7 @@ ${historyContext}`;
   if (!config.apiKey) {
     console.error("Error: API key not found.");
     console.error(
-      "Please provide an API key in your config.json file or by setting the OPENAI_API_KEY environment variable.",
+      "Please provide an API key in your config.json file or by setting the OPENAI_API_KEY environment variable."
     );
     process.exit(1);
   }
@@ -264,18 +264,15 @@ ${historyContext}`;
           },
         ],
       });
-
       // @ts-ignore
-      const raw = response.content?.[0].text ?? response?.text ?? "";
-
+      const raw = response.content?.[0].text ?? response?.text ?? '';
       return sanitizeResponse(String(raw));
     }
 
     case "Gemini": {
       const genAI = new GoogleGenerativeAI(config.apiKey);
       const model = genAI.getGenerativeModel({ model: config.model });
-      const prompt =
-        `${systemPrompt}\n\nCommand description: ${commandDescription}`;
+      const prompt = `${systemPrompt}\n\nCommand description: ${commandDescription}`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const raw = await response.text();
@@ -287,7 +284,7 @@ ${historyContext}`;
       const model = config.model ? config.model : "openai/gpt-4.1-nano";
       const github = ModelClient(
         endpoint,
-        new AzureKeyCredential(config.apiKey),
+        new AzureKeyCredential(config.apiKey)
       );
 
       const response = await github.path("/chat/completions").post({
@@ -312,7 +309,7 @@ ${historyContext}`;
 
     default:
       console.error(
-        `Error: Unknown provider type "${config.type}" in config.json.`,
+        `Error: Unknown provider type "${config.type}" in config.json.`
       );
       process.exit(1);
   }
