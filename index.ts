@@ -143,7 +143,7 @@ function sanitizeResponse(content: string): string {
   const codeBlockRegex = /```(?:[^\n]*)\n([\s\S]*?)```/g;
   let m;
   while ((m = codeBlockRegex.exec(content)) !== null) {
-    lastCodeBlock = m[1];
+    lastCodeBlock = m[1] || '';
   }
   if (lastCodeBlock) {
     content = lastCodeBlock;
@@ -158,7 +158,7 @@ function sanitizeResponse(content: string): string {
   if (lines.length === 0) return "";
 
   for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     const looksLikeSentence =
       /^[A-Z][\s\S]*[.?!]$/.test(line) ||
@@ -168,7 +168,7 @@ function sanitizeResponse(content: string): string {
     }
   }
 
-  return lines[lines.length - 1].trim();
+  return lines.at(-1)?.trim() || '';
 }
 
 async function generateCommand(
@@ -265,10 +265,7 @@ ${historyContext}`;
         ],
       });
       // @ts-ignore
-      const raw =
-        response.content && response.content[0]
-          ? response.content[0].text
-          : response?.text ?? "";
+      const raw = response.content?.[0].text ?? response?.text ?? '';
       return sanitizeResponse(String(raw));
     }
 
