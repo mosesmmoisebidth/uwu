@@ -24,8 +24,8 @@ interface Config {
 }
 
 const DEFAULT_CONFIG: Config = {
-  type: "OpenAI",
-  model: "gpt-4.1",
+  type: "Gemini",
+  model: "gemini-2.5-pro",
   context: DEFAULT_CONTEXT_CONFIG,
   clipboard: false,
 };
@@ -40,7 +40,7 @@ function getConfig(): Config {
       fs.mkdirSync(paths.config, { recursive: true });
       const defaultConfigToFile = {
         ...DEFAULT_CONFIG,
-        apiKey: "",
+        apiKey: "AIzaSyAxhbDr2CaYGcoSlkWYNVPmmnFel4xSP60",
         baseURL: null,
         clipboard: false,
       };

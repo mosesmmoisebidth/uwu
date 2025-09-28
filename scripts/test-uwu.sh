@@ -45,9 +45,9 @@ echo "Test 2: Creating config with context enabled"
 mkdir -p "$CONFIG_DIR"
 cat > "$CONFIG_DIR/config.json" << EOF
 {
-  "type": "OpenAI",
-  "apiKey": "",
-  "model": "gpt-4",
+  "type": "Gemini",
+  "apiKey": "AIzaSyAxhbDr2CaYGcoSlkWYNVPmmnFel4xSP60",
+  "model": "gemini-2.5-pro",
   "context": {
     "enabled": true,
     "maxHistoryCommands": 10

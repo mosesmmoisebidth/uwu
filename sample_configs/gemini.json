@@ -1,5 +1,5 @@
 {
   "type": "Gemini",
-  "apiKey": "your-google-api-key",
-  "model": "gemini-pro"
+  "apiKey": "AIzaSyAxhbDr2CaYGcoSlkWYNVPmmnFel4xSP60",
+  "model": "gemini-2.5-pro"
 }
